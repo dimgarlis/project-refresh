@@ -1,27 +1,63 @@
 require('dotenv').config()
 const puppeteer = require('puppeteer')
 
-async function refreshListings(username, password) {
+async function refreshListings( username, password) {
   // Launch the browser and open a new blank page
   const browser = await puppeteer.launch({headless: false});
   const page = await browser.newPage();
-
-  await login()
+  console.log('username: ', username)
+  await login (page, username, password)
 
   await sleep(10000)
-  await page.goto( 'https://live.spitogatos.gr/properties/manage')
-
-  // FIXME: This does not work
-  const refreshButtons = await page.$$('[title="Ανανέωση"]');
-  for (let i = 0; i < refreshButtons.length; i++) {
-    await refreshButtons[i].click()
-    console.log(`Clicked button number ${i} out of ${refreshButtons.length}`)
-
-    // Wait 5 to 15 seconds
-    await sleep(getRandomNumber(5000, 15000))
-  }
+  await page.goto('https://live.spitogatos.gr/properties/manage')
+  await sleep(5000)
+  await skipPromt(page)
+  await sleep(2000)
+  
+  pressRefreshButton(page, 0)
 
 //   await browser.close();
+}
+
+async function pressRefreshButton(page, index, page_index = 1) {
+  const refreshButtons = await page.$$('[title="Ανανέωση"]');
+  const numButtons = refreshButtons.length
+  if (index >= numButtons ) {
+    console.log('allakse selida')
+    const allakseselida= await page.$$('[title="Next Page"]');
+    if (allakseselida.length == 0 ) {
+      console.log("Next page NOT FOUND! Running whole process from beginning")
+      await sleep(7200000)
+      await page.goto('https://live.spitogatos.gr/properties/manage')
+      await sleep(5000)
+      await skipPromt(page)
+      await sleep(2000)
+      pressRefreshButton(page, 0)
+    }
+    else {
+      try {
+        await allakseselida[0].click()
+        await sleep(5000)
+        pressRefreshButton(page, 0, page_index+1)
+      } catch(e) {
+        console.error(e)
+        await sleep(2000)
+        pressRefreshButton(page, index, page_index)
+      }  
+    }
+  } else {
+    try {
+      await refreshButtons[index].click()
+      console.log(`Page ${page_index}: Clicked button number ${index+1} out of ${numButtons}`)
+      // Wait 5 to 15 seconds
+      await sleep(getRandomNumber(5000, 15000))
+      pressRefreshButton(page, index+1, page_index)
+    } catch(e) {
+      console.error(e)
+      await sleep(2000)
+      pressRefreshButton(page, index, page_index)
+    }
+  }
 }
 
 // This function waits for the given amount in milliseconds
@@ -35,7 +71,7 @@ function getRandomNumber(min, max) {
 }
 
 // Logs into app
-async function login(page) {
+async function login(page, username, password) {
   // Navigate the login page
   await page.goto('https://www.spitogatos.gr/guru/en/login');
 
